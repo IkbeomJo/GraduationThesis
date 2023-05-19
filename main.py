@@ -3,7 +3,11 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from time import sleep
+from bs4 import BeautifulSoup
 import sys
+import re
+import pandas as pd
+
 
 if __name__ == '__main__':
     chrome_options = Options()
@@ -16,8 +20,8 @@ if __name__ == '__main__':
 
     # 한신대 포털을 들어가기 위한 로그인 데이터 입력
     login_Data = {
-        'id' : 'ib0113',
-        'pwd' : 'whdlrqja13!'
+        'id' : '',
+        'pwd' : '!'
     }
 
     driver.find_element(By.ID, 'userId').send_keys(login_Data['id']) # ID FORM에 id 입력
@@ -35,14 +39,25 @@ if __name__ == '__main__':
 
 
     ###########################  아래코드는 과목 데이터가 있는 테이블까지 가는 경로  ########################################
-    sleep(2)
+    sleep(3)
     driver.find_element(By.XPATH,'//*[@id="mainframe.HFrameSet00.LeftFrame.form.div_left_wrap2.form.menulist_wrap.form.menu_dep01_1"]').click()
     sleep(0.5)
     driver.find_element(By.XPATH,'//*[@id="mainframe.HFrameSet00.LeftFrame.form.div_left_wrap2.form.menulist_wrap.form.menu_dep02_wrap_1.form.menu_dep02_1"]').click()
     sleep(0.5)
     driver.find_element(By.XPATH,'//*[@id="mainframe.HFrameSet00.LeftFrame.form.div_left_wrap2.form.menulist_wrap.form.menu_dep02_wrap_1.form.menu_dep03_wrap_1.form.menu_dep03_1"]').click()
     sleep(0.5)
-    driver.find_element(By.XPATH,'//*[@id="mainframe.HFrameSet00.LeftFrame.form.div_left_wrap2.form.menulist_wrap.form.menu_dep02_wrap_1.form.menu_dep03_wrap_1.form.menu_dep04_wrap_1.form.menu_dep04_14"]').click()
+
+    while True:
+        try:
+            driver.find_element(By.XPATH,'//*[@id="mainframe.HFrameSet00.LeftFrame.form.div_left_wrap2.form.menulist_wrap.form.menu_dep02_wrap_1.form.menu_dep03_wrap_1.form.menu_dep04_wrap_1.form.menu_dep04_14"]').click()
+            break
+        except Exception:
+            driver.find_element(By.XPATH,'//*[@id="mainframe.HFrameSet00.LeftFrame.form.div_left_wrap2.form.btn_menuscroll_btm"]').click()
+            sleep(0.1)
+            # Element does not exist
+            # Continue looping until the element is found or a condition is met
+            pass
+
     sleep(0.5)
     #################################################################################################################
 
@@ -59,7 +74,7 @@ if __name__ == '__main__':
         'Semester': '2학기',  # 1학기, 2학기, 여름계절학기, 겨울계절학기, 입학전특별교육
     }
     Semester_tabel = [None, '1학기', '2학기', '여름계절학기', '겨울계절학기', '입학전특별교육']
-    sleep(1)
+    sleep(3)
 
 
     # 찾고자 하는 데이터의 학년도 값을 변경 하는 코드
@@ -81,9 +96,39 @@ if __name__ == '__main__':
 
 
     scroll_bnt = driver.find_element(By.XPATH,'//*[@id="mainframe.HFrameSet00.VFrameSet00.WorkFrame.2429.form.div_content.form.Grid00.vscrollbar.incbutton:icontext"]')
-    for i in range(20):
+
+    Recent_Collection_Number = 0
+    while True:
+        lecture_table = list()
         scroll_bnt.click()
-        sleep(0.5)
+        html = driver.page_source
+
+        soup = BeautifulSoup(html, 'html.parser')
+
+        column_names = ['id', 'classification', 'grade', 'course_code', 'category', 'subject_title', 'class_time',
+                        'classroom', 'instruction', 'credit']
+
+        Finding_Table_All = soup.find('div', {
+            'id': f'mainframe.HFrameSet00.VFrameSet00.WorkFrame.{element_id}.form.div_content.form.Grid00.body:container'})
+
+        Each_Table = Finding_Table_All.find_all("div", "GridRowControl row nexatransform")
+        'GridCellControl cell oddcell dummy dummy dummy'
+        data = []  # List to store the extracted data
+
+        for row in Each_Table:
+            row_data = {}  # Dictionary to store the data of each row
+            cells = row.find_all("div", "GridCellControl cell")
+
+            for i, cell in enumerate(cells):
+                if cell.text.strip():
+                    row_data[column_names[i]] = cell.text.strip()
+
+            data.append(row_data)
+
+        df = pd.DataFrame(data)
+        print(df)
+
+
 
     # con = pymysql.connect(host='localhost', user='root', password='dlrqja13',
     #                       db='Lecture_Recommend', charset='utf8',  # 한글처리 (charset = 'utf8')
